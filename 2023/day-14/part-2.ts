@@ -103,38 +103,50 @@ function rollAllRocks(map: MapSymbol[][], dir: Direction) {
   }
 }
 
+function computeLoad(map: MapSymbol[][]) {
+    let load = 0;
+    for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+          if (map[y][x] === MapSymbol.RoundRock) {
+            load += map.length - y;
+          }
+        }
+      }
+    return load;
+}
+
 function run(input: string) {
   const map = input.split("\n").map((line) => {
     return line.trim().split("");
   }) as MapSymbol[][];
 
   debugMap(map);
-  let cycles = 1000000000;
+  let cycles = 200000;
   let logpoints = 500;
   let increment = cycles / logpoints;
   let counter = 1;
+  let loads: number[] = [];
+  require("fs").writeFileSync("./loads2.txt", "");
 
   for (let i = 0; i < cycles; i++) {
     rollAllRocks(map, Direction.North);
     rollAllRocks(map, Direction.West);
     rollAllRocks(map, Direction.South);
     rollAllRocks(map, Direction.East);
+    loads.push(computeLoad(map));
     if (i === (increment * counter)) {
       console.info('Reached', Math.round(i / cycles * 100) + '%');
       counter++;
+      require("fs").appendFileSync("./loads2.txt", loads.join(', ')+'\r\n');
+
+      loads = [];
     }
   }
 
   debugMap(map);
-  let load = 0;
+  const load = computeLoad(map);
 
-  for (let y = 0; y < map.length; y++) {
-    for (let x = 0; x < map[y].length; x++) {
-      if (map[y][x] === MapSymbol.RoundRock) {
-        load += map.length - y;
-      }
-    }
-  }
+  
   return load;
 }
 
