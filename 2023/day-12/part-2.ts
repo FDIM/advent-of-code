@@ -1,6 +1,7 @@
 interface SpringRecord {
   springs: SpringType[];
   sequence: number[];
+  regex: RegExp;
 }
 
 enum SpringType {
@@ -10,8 +11,7 @@ enum SpringType {
 }
 
 function checkIntegrity(springs: SpringType[], regex: RegExp) {
-  
-  return regex.test(springs.join(''));
+  return regex.test(springs.join(""));
   // const seq = sequence.slice();
   // let i = 0;
   // let num = seq.shift();
@@ -31,7 +31,12 @@ function checkIntegrity(springs: SpringType[], regex: RegExp) {
   // return valid && springs.length > 0;
 }
 
+const cache: Record<number, SpringType[][]> = {};
 function getPossibleOptions(types: SpringType[], length: number): SpringType[][] {
+  if(cache[length]) {
+    return cache[length];
+  }
+  console.info('computing options for', length);
   if (length === 0) {
     return [];
   } else if (length === 1) {
@@ -44,6 +49,8 @@ function getPossibleOptions(types: SpringType[], length: number): SpringType[][]
         copy.push([...op, type]);
       });
     })
+    cache[length] = copy;
+    console.info('computed options for ', length, copy.length);
     return copy;
   }
 }
@@ -55,57 +62,63 @@ function computeArrangements(record: SpringRecord): SpringType[][] {
     }
     return res;
   }, [] as number[]);
-  
+
   const variants = [SpringType.Damaged, SpringType.Operational];
   const options = getPossibleOptions(variants, locations.length);
-  // console.info(options);
 
-  const arrangements = options.map(op => {
+  const arrangements: SpringType[][] = [];
+  options.forEach((op) => {
     const copy = [...record.springs];
     locations.forEach((loc, index) => {
       copy[loc] = op[index];
     });
-    return copy;
+    if (checkIntegrity(copy, record.regex)) {
+      arrangements.push(copy);
+    }
   });
 
   return arrangements;
 }
 
 function run(input: string) {
-  // console.info(
-  //   checkIntegrity("....##...#.###...".split("") as SpringType[], [2, 1, 3])
-  // );
-
   const records: SpringRecord[] = input.split("\n").map((line, y) => {
     const [springs, sequence] = line.trim().split(" ");
+    const expandedSprings = [springs, springs, springs, springs, springs]
+      .join("?")
+      .split("") as SpringType[];
+    const expandedSequence = [sequence, sequence, sequence, sequence, sequence]
+      .join(",")
+      .split(",")
+      .map((n) => parseInt(n, 10));
     return {
-      springs: [springs,springs,springs,springs,springs].join('?').split("") as SpringType[],
-      sequence: [sequence, sequence, sequence, sequence, sequence].join(',').split(",").map((n) => parseInt(n, 10)),
+      springs: expandedSprings,
+      sequence: expandedSequence,
+      regex: new RegExp(
+        `^[\\\.]*${expandedSequence
+          .map((s) => {
+            return `[\#]{${s}}`;
+          })
+          .join("[\\.]+")}[\\\.]*$`
+      ),
     };
   });
 
-  
-
-  const total = records.reduce((res, record) => {
-    const regex = new RegExp(`^[\\\.]*${ record.springs.map(s => {
-      return `[\#]{${s}}`
-    }).join('[\\\.]+') }[\\\.]*$`);
-    const arrangements = computeArrangements(record).filter(a => checkIntegrity(a, regex));
-    // console.info(record.springs.join(""), record.sequence);
-
-    // console.info(
-    //   arrangements
-    //     .map((a) => a.join("") +':' + checkIntegrity(a, record.sequence))
-    //     .join("\n")
-    // );
-    // console.info("");
-    res +=
-      arrangements.length + 0
-      // (arrangements[0]?.filter((s) => s === SpringType.Damaged).length ?? 0);
+  const total = records.reduce((res, record, index) => {
+    const arrangements = computeArrangements(record);
+    require("fs").appendFileSync(
+      "./out.txt",
+      `${record.springs.join("")} | ${record.sequence.join(",")} | ${
+        arrangements.length
+      } | ${Math.round(index / records.length * 100)}%\r\n`,
+      "utf-8"
+    );
+    res += arrangements.length;
     return res;
   }, 0);
   return total;
 }
+
+require("fs").writeFileSync("./out.txt", "");
 
 console.info(new Date().toJSON());
 console.info(
@@ -119,7 +132,7 @@ console.info(
   )
 );
 console.info(new Date().toJSON());
-console.info(
-  run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
-);
+// console.info(
+//   run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
+// );
 console.info(new Date().toJSON());

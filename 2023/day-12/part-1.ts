@@ -1,6 +1,7 @@
 interface SpringRecord {
   springs: SpringType[];
   sequence: number[];
+  regex: RegExp;
 }
 
 enum SpringType {
@@ -9,10 +10,7 @@ enum SpringType {
   Unknown = "?",
 }
 
-function checkIntegrity(springs: SpringType[], sequence: number[]) {
-  const regex = new RegExp(`^[\\\.]*${ sequence.map(s => {
-    return `[\#]{${s}}`
-  }).join('[\\\.]+') }[\\\.]*$`);
+function checkIntegrity(springs: SpringType[], regex: RegExp) {
   
   return regex.test(springs.join(''));
   // const seq = sequence.slice();
@@ -33,8 +31,11 @@ function checkIntegrity(springs: SpringType[], sequence: number[]) {
   // }
   // return valid && springs.length > 0;
 }
-
+const cache: Record<number, SpringType[][]> = {};
 function getPossibleOptions(types: SpringType[], length: number): SpringType[][] {
+  if(cache[length]) {
+    return cache[length];
+  }
   if (length === 0) {
     return [];
   } else if (length === 1) {
@@ -47,6 +48,7 @@ function getPossibleOptions(types: SpringType[], length: number): SpringType[][]
         copy.push([...op, type]);
       });
     })
+    cache[length] = copy;
     return copy;
   }
 }
@@ -58,17 +60,19 @@ function computeArrangements(record: SpringRecord): SpringType[][] {
     }
     return res;
   }, [] as number[]);
-  
+
   const variants = [SpringType.Damaged, SpringType.Operational];
   const options = getPossibleOptions(variants, locations.length);
-  // console.info(options);
 
-  const arrangements = options.map(op => {
+  const arrangements: SpringType[][] = [];
+  options.forEach((op) => {
     const copy = [...record.springs];
     locations.forEach((loc, index) => {
       copy[loc] = op[index];
     });
-    return copy;
+    if (checkIntegrity(copy, record.regex)) {
+      arrangements.push(copy);
+    }
   });
 
   return arrangements;
@@ -81,29 +85,36 @@ function run(input: string) {
 
   const records: SpringRecord[] = input.split("\n").map((line, y) => {
     const [springs, sequence] = line.trim().split(" ");
+    const parsedSequence = sequence.split(",").map((n) => parseInt(n, 10));
     return {
       springs: springs.split("") as SpringType[],
-      sequence: sequence.split(",").map((n) => parseInt(n, 10)),
+      sequence: parsedSequence,
+      regex: new RegExp(
+        `^[\\\.]*${parsedSequence
+          .map((s) => {
+            return `[\#]{${s}}`;
+          })
+          .join("[\\.]+")}[\\\.]*$`
+      ),
     };
   });
 
-  const total = records.reduce((res, record) => {
-    const arrangements = computeArrangements(record).filter(a => checkIntegrity(a, record.sequence));
-    console.info(record.springs.join(""), record.sequence);
-
-    // console.info(
-    //   arrangements
-    //     .map((a) => a.join("") +':' + checkIntegrity(a, record.sequence))
-    //     .join("\n")
-    // );
-    console.info("");
-    res +=
-      arrangements.length + 0
-      // (arrangements[0]?.filter((s) => s === SpringType.Damaged).length ?? 0);
+  const total = records.reduce((res, record, index) => {
+    const arrangements = computeArrangements(record);
+    require("fs").appendFileSync(
+      "./out.txt",
+      `${record.springs.join("")} | ${record.sequence.join(",")} | ${
+        arrangements.length
+      } | ${Math.round(index / records.length * 100)}%\r\n`,
+      "utf-8"
+    );
+    res += arrangements.length;
     return res;
   }, 0);
   return total;
 }
+
+require("fs").writeFileSync("./out.txt", "");
 
 console.info(new Date().toJSON());
 console.info(
