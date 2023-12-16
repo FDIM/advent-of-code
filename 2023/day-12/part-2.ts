@@ -88,7 +88,21 @@ function run(input: string) {
     };
   });
 
-  const total = records.reduce((res, record, index) => {
+  if (process.argv.length <= 2) {
+    require("fs").writeFileSync("./out.txt", "");
+
+    const spawn = require("child_process").spawn;
+    const chunkSize = Math.ceil(records.length / 8);
+    for (let i = 0; i < records.length; i += chunkSize) {
+      spawn("ts-node.cmd", ["./part-2.ts", i, i + chunkSize], { stdio: "inherit" });
+    }
+    return;
+  }
+
+  let end = parseInt(process.argv.pop() ?? "", 10);
+  let start = parseInt(process.argv.pop() ?? "", 10);
+
+  const total = records.slice(start, end).reduce((res, record, index) => {
     let arrangementsCount = 0;
     computeArrangements(record, () => {
       arrangementsCount++;
@@ -107,8 +121,6 @@ function run(input: string) {
   return total;
 }
 
-require("fs").writeFileSync("./out.txt", "");
-
 console.info(new Date().toJSON());
 console.info(
   run(
@@ -120,8 +132,8 @@ console.info(
     ?###???????? 3,2,1`
   )
 );
-console.info(new Date().toJSON());
-console.info(
-  run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
-);
+// console.info(new Date().toJSON());
+// console.info(
+//   run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
+// );
 console.info(new Date().toJSON());
