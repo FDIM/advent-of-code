@@ -19,40 +19,34 @@ function debugMap(map: string[][], x: number, y: number) {
 
 function isVerticalLineMirrorAt(pattern: string[][], x: number) {
   let wrong = 0;
-  let count = 0;
   for (let y = 0; y < pattern.length; y++) {
     let lower = x - 1;
     let upper = x;
     while (lower >= 0 && upper < pattern[y].length) {
       if (pattern[y][lower] !== pattern[y][upper]) {
         wrong++;
-      } else {
-        count++;
       }
       lower--;
       upper++;
     }
   }
-  return (count - wrong) === 0;
+  return wrong === 1;
 }
 
 function isHorizontalLineMirrorAt(pattern: string[][], y: number) {
   let wrong = 0;
-  let count = 0;
   for (let x = 0; x < pattern[y].length; x++) {
     let lower = y - 1;
     let upper = y;
     while (lower >= 0 && upper < pattern.length) {
       if (pattern[lower][x] !== pattern[upper][x]) {
         wrong++;
-      } else {
-        count++;
       }
       lower--;
       upper++;
     }
   }
-  return (count - wrong) === 0;
+  return wrong === 1;
 }
 
 function indexOfVerticalLineMirror(pattern: string[][]) {
@@ -140,6 +134,6 @@ console.info(
   )
 );
 
-// console.info(
-//   run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
-// );
+console.info(
+  run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
+);
