@@ -31,31 +31,19 @@ function checkIntegrity(springs: SpringType[], regex: RegExp) {
   // return valid && springs.length > 0;
 }
 
-const cache: Record<number, SpringType[][]> = {};
-function getPossibleOptions(types: SpringType[], length: number): SpringType[][] {
-  if(cache[length]) {
-    return cache[length];
-  }
-  console.info('computing options for', length);
+function iteratePossibleOptions(variants: SpringType[], length: number, callback: (variant: SpringType[]) => void, value?: SpringType[]) {
   if (length === 0) {
-    return [];
-  } else if (length === 1) {
-    return types.map(t => [t]);
-  } else {
-    const options = getPossibleOptions(types, length - 1);
-    const copy: SpringType[][] = [];
-    types.forEach(type => {
-      options.forEach(op => {
-        copy.push([...op, type]);
-      });
-    })
-    cache[length] = copy;
-    console.info('computed options for ', length, copy.length);
-    return copy;
+    callback(value ?? []);
+    return;
   }
+
+  for(const variant of variants) {
+    const copy = [...value ?? [], variant];
+    iteratePossibleOptions(variants, length -1, callback, copy)
+  };
 }
 
-function computeArrangements(record: SpringRecord): SpringType[][] {
+function computeArrangements(record: SpringRecord, callback: (arrangement: SpringType[]) => void) {
   const locations: number[] = record.springs.reduce((res, spring, index) => {
     if (spring === SpringType.Unknown) {
       res.push(index);
@@ -64,20 +52,17 @@ function computeArrangements(record: SpringRecord): SpringType[][] {
   }, [] as number[]);
 
   const variants = [SpringType.Damaged, SpringType.Operational];
-  const options = getPossibleOptions(variants, locations.length);
 
-  const arrangements: SpringType[][] = [];
-  options.forEach((op) => {
-    const copy = [...record.springs];
-    locations.forEach((loc, index) => {
-      copy[loc] = op[index];
-    });
+  const copy = [...record.springs];
+  iteratePossibleOptions(variants, locations.length, (variant) =>{
+    for(let i = 0; i< locations.length; i++) {
+      copy[locations[i]] = variant[i];
+    }
     if (checkIntegrity(copy, record.regex)) {
-      arrangements.push(copy);
+      callback(copy);
     }
   });
 
-  return arrangements;
 }
 
 function run(input: string) {
@@ -104,15 +89,19 @@ function run(input: string) {
   });
 
   const total = records.reduce((res, record, index) => {
-    const arrangements = computeArrangements(record);
+    let arrangementsCount = 0;
+    computeArrangements(record, () => {
+      arrangementsCount++;
+    });
+
     require("fs").appendFileSync(
       "./out.txt",
       `${record.springs.join("")} | ${record.sequence.join(",")} | ${
-        arrangements.length
+        arrangementsCount
       } | ${Math.round(index / records.length * 100)}%\r\n`,
       "utf-8"
     );
-    res += arrangements.length;
+    res += arrangementsCount;
     return res;
   }, 0);
   return total;
@@ -132,7 +121,7 @@ console.info(
   )
 );
 console.info(new Date().toJSON());
-// console.info(
-//   run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
-// );
+console.info(
+  run(require("fs").readFileSync(__dirname + "/input.txt", "utf-8"))
+);
 console.info(new Date().toJSON());
