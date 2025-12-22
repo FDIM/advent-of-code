@@ -118,7 +118,7 @@ function run(input: string, lower: number, upper: number) {
         collisionPoint.y <= max.y
       ) {
         collisions++;
-        console.info("collision", collisionPoint);
+        // console.info("collision", collisionPoint);
         // console.info(stone1);
         // console.info(stone2);
       }
