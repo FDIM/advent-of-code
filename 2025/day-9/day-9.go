@@ -280,6 +280,10 @@ func IsRectInsidePolygon(r *Rect, points []*Point) bool {
 	return true
 }
 
+func IsRectInsidePolygonAsync(r *Rect, points []*Point, ch chan bool) {
+	ch <- IsRectInsidePolygon(r, points)
+}
+
 func ComputeAnswerPart2(grid *Grid) (answer int) {
 	// f, _ := os.OpenFile("./out.txt", os.O_CREATE|os.O_TRUNC, 0666)
 	// log.SetOutput(f)
@@ -299,18 +303,31 @@ func ComputeAnswerPart2(grid *Grid) (answer int) {
 		}
 	}
 
-	list := make([]*Rect, 0)
+	fullList := make([]*Rect, 0)
+	channels := make([]chan bool, 0)
 	for i := 0; i < len(grid.redTiles); i++ {
 		if visualize {
 			grid.items[grid.redTiles[i].y][grid.redTiles[i].x] = '#'
 		}
 		for j := i + 1; j < len(grid.redTiles); j++ {
 			r := MakeRect(grid.redTiles[i], grid.redTiles[j])
-			if IsRectInsidePolygon(r, grid.redTiles) {
-				list = append(list, r)
-			}
+			fullList = append(fullList, r)
+			ch := make(chan bool)
+			channels = append(channels, ch)
+			go IsRectInsidePolygonAsync(r, grid.redTiles, ch)
 		}
 	}
+
+	list := make([]*Rect, 0)
+
+	for i := range fullList {
+		r := fullList[i]
+		inside := <-channels[i]
+		if inside {
+			list = append(list, r)
+		}
+	}
+
 	if visualize {
 		for y := 0; y <= grid.max.y; y++ {
 			for x := 0; x <= grid.max.x; x++ {
