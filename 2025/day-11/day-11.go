@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -65,80 +67,62 @@ func MakeDevice(s string) *Device {
 }
 
 type SearchContext struct {
-	paths [][]string
-	stack []SearchContextStack
-	// unsure if needed
-	visited int64
+	paths        [][]string
+	visitedCount int64
+	visited      map[string]int
 }
 
-type SearchContextStack struct {
-	index            int
-	startIndex       int
-	requiredSequence []string
-	path             []string
+func TraverseTree(devices []*Device, start string, context *SearchContext, requiredSequence []string) {
+	TraverseTreeImpl(devices, start, context, requiredSequence, make([]string, 0), start, strconv.Itoa(rand.Int()))
 }
 
-func TraverseTree(devices []*Device, index int, context *SearchContext, requiredSequence []string) {
-	TraverseTreeImpl(devices, index, context, requiredSequence, make([]string, 0), index)
-}
+func TraverseTreeImpl(devices []*Device, start string, context *SearchContext, requiredSequence []string, path []string, target string, prefix string) {
 
-func TraverseTreeImpl(devices []*Device, startIndex int, context *SearchContext, requiredSequence []string, path []string, index int) {
+	// pathKey := prefix + ":" + target
+	// count, isKnownPath := context.visited[pathKey]
+	// // nothing to do if we have tried this path already and found nothing
+	// if count == 0 && isKnownPath {
+	// 	return
+	// }
+	path = append(path, target)
+
+	if target == requiredSequence[0] {
+		// log.Println("Found path to", requiredSequence[0], path, len(requiredSequence))
+		requiredSequence = requiredSequence[1:]
+
+		if len(requiredSequence) == 0 {
+			context.paths = append(context.paths, path)
+			return
+		}
+		// prefix = strconv.Itoa(rand.Int())
+	}
+
+	index := slices.IndexFunc(devices, MakeDeviceComparatorById(target))
+	// we probably found the end too soon
+	if index == -1 {
+		return
+	}
 
 	d := devices[index]
 
-	// unsure if needed
-	// if context.visited != nil && len(path) > 0 {
-	// 	str := strings.Join(requiredSequence, ",") + "|" + strings.Join(path, ",") + d.id
-	// 	if slices.Contains(context.visited, str) {
-	// 		log.Println("duplicate", str)
-	// 		return
-	// 	}
-	// 	context.visited = append(context.visited, str)
-	// }
-
-	if context.visited%10000 == 0 {
-		log.Println(d.id, path, requiredSequence, context.visited, len(context.stack))
+	if context.visitedCount%100000 == 0 {
+		log.Println(target, path, requiredSequence, context.visitedCount, len(context.paths))
 	}
-	context.visited++
+
+	context.visitedCount++
 
 	for i := 0; i < len(d.outputs); i++ {
-		outId := d.outputs[i]
-
-		if outId == requiredSequence[0] {
-			path = append(path, requiredSequence[0])
-			log.Println("Found path to", requiredSequence[0], path, len(requiredSequence))
-			requiredSequence = requiredSequence[1:]
-
-			if len(requiredSequence) == 0 {
-				context.paths = append(context.paths, path)
-				break
-			}
-		}
-		// we found end too soon and it does not follow the required sequence
-		if outId == PATH_END {
-			break
-		}
-		nextIndex := slices.IndexFunc(devices, MakeDeviceComparatorById(outId))
-		// log.Println(outId, index, nextIndex)
-		npath := make([]string, len(path))
-		copy(npath, path)
-		npath = append(npath, d.id)
 		// if i == 0 {
-		// 	TraverseTreeImpl(devices, startIndex, context, requiredSequence, path, nextIndex)
+		// pathsCount := len(context.paths)
+		TraverseTreeImpl(devices, start, context, requiredSequence, path, d.outputs[i], prefix)
+		// context.visited[pathKey] = len(context.paths) - pathsCount
 		// } else {
-			context.stack = append(context.stack, SearchContextStack{startIndex: startIndex, index: nextIndex, requiredSequence: requiredSequence, path: npath})
+		// 	defer func(ii int) {
+		// 		pathsCount := len(context.paths)
+		// 		TraverseTreeImpl(devices, start, context, requiredSequence, path, d.outputs[i], prefix)
+		// 		context.visited[pathKey] = len(context.paths) - pathsCount
+		// 	}(i)
 		// }
-	}
-}
-
-func RunSearchStack(devices []*Device, context *SearchContext) {
-	for {
-		if len(context.stack) == 0 {
-			break
-		}
-		s := context.stack[0]
-		TraverseTreeImpl(devices, s.startIndex, context, s.requiredSequence, s.path, s.index)
-		context.stack = context.stack[1:]
 	}
 }
 
@@ -149,33 +133,25 @@ func MakeDeviceComparatorById(id string) func(d *Device) bool {
 }
 
 func ComputeAnswer(devices []*Device) (answer int) {
-	// data only goes one way, so skip everything until "you" device
-	start := slices.IndexFunc(devices, MakeDeviceComparatorById(PATH_START))
 
-	context := SearchContext{paths: make([][]string, 0)}
+	context := SearchContext{paths: make([][]string, 0), visited: make(map[string]int)}
 
-	TraverseTree(devices, start, &context, []string{PATH_END})
-	RunSearchStack(devices, &context)
+	TraverseTree(devices, PATH_START, &context, []string{PATH_END})
+	// log.Println(context.visited)
 	// log.Println(context.paths)
 	answer = len(context.paths)
 	return answer
 }
 
 func ComputeAnswerPart2(devices []*Device) (answer int) {
-	// data only goes one way, so skip everything until "you" device
-	start := slices.IndexFunc(devices, MakeDeviceComparatorById(PATH_START_PART2))
+	context := SearchContext{paths: make([][]string, 0), visited: make(map[string]int)}
 
-	context := SearchContext{paths: make([][]string, 0)}
+	// TraverseTree(devices, PATH_START_PART2, &context, []string{PATH_END})
+	TraverseTree(devices, PATH_START_PART2, &context, []string{PATH_FAULTY_1, PATH_FAULTY_2, PATH_END})
+	TraverseTree(devices, PATH_START_PART2, &context, []string{PATH_FAULTY_2, PATH_FAULTY_1, PATH_END})
 
-	TraverseTree(devices, start, &context, []string{PATH_FAULTY_1, PATH_FAULTY_2, PATH_END})
-	RunSearchStack(devices, &context)
-	TraverseTree(devices, start, &context, []string{PATH_FAULTY_2, PATH_FAULTY_1, PATH_END})
-	RunSearchStack(devices, &context)
-
-	// for p := range context.visited {
-	// 	log.Println("v", context.visited[p])
-	// }
-	log.Println(context.paths)
+	// log.Println(context.visited)
+	// log.Println(context.paths)
 	answer = len(context.paths)
 	return answer
 }
